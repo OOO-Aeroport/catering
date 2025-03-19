@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Airport Dashboard</title>
+    <style>
+        .container {
+            display: flex;
+        }
+        .column {
+            flex: 1;
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .scrollable {
+            height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+    <script>
+        function fetchData() {
+            fetch('/catering-service/get-all-cars')
+                .then(response => response.json())
+                .then(data => {
+                    const ordersDiv = document.getElementById('cars');
+                    ordersDiv.innerHTML = data.map(car => `
+                        <div>
+                            <p>Order ID: ${car.orderId}</p>
+                            <p>Plane ID: ${car.planeId}</p>
+                            <p>Quantity of food needed: ${car.foodNeeded}</p>
+                            <p>Current quantity of food in car: ${car.currentFoodQuantity}</p>
+                            <p>Current point: ${car.currentPoint}</p>
+                            <p>Current route: ${car.route}</p>
+                            <p>Quantity of failed proceed-to-point requests: ${car.proceedingToPointFails}</p>
+                            <hr>
+                        </div>
+                    `).join('');
+                });
+
+
+        }
+
+
+        setInterval(fetchData, 5000);
+
+        document.addEventListener('DOMContentLoaded', fetchData);
+    </script>
+</head>
+<body>
+<h1>Airport Catering-Service Cars</h1>
+<div class="container">
+    <div class="column">
+        <h2>Cars</h2>
+        <div id="cars" class="scrollable"></div>
+    </div>
+</div>
+</body>
+</html>
