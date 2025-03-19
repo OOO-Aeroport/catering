@@ -3,6 +3,7 @@ package matvey.service;
 import matvey.dto.FoodOrderRequest;
 import matvey.dto.RTORequest;
 import matvey.feignclient.BoardClient;
+import matvey.feignclient.DepartureBoardClient;
 import matvey.feignclient.GroundDispatcherClient;
 import matvey.feignclient.UNOClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,12 +20,14 @@ public class CateringService {
     private final UNOClient unoClient;
     private final BoardClient boardClient;
     private final GroundDispatcherClient groundDispatcherClient;
+    private final DepartureBoardClient departureBoardClient;
 
     @Autowired
-    public CateringService(UNOClient unoClient, BoardClient boardClient, GroundDispatcherClient groundDispatcherClient) {
+    public CateringService(UNOClient unoClient, BoardClient boardClient, GroundDispatcherClient groundDispatcherClient, DepartureBoardClient departureBoardClient) {
         this.unoClient = unoClient;
         this.boardClient = boardClient;
         this.groundDispatcherClient = groundDispatcherClient;
+        this.departureBoardClient = departureBoardClient;
         this.cars = new ArrayList<>();
     }
     public void processUnloadOrder(Integer orderId, Integer planeId) throws InterruptedException {
@@ -41,35 +44,38 @@ public class CateringService {
     public void serveUnloadOrder(CateringCar car) throws InterruptedException {
         leaveGarage(car);
 
-        Thread.sleep(1000);
+        takeANap(70);
 
         System.out.println("planeId: " + car.getPlaneId() + ". Нужно выгрузить мусор из самолета.");
         // Устанавливаем маршрут до самолета, чтобы забрать мусор
-        car.setRoutePoints(groundDispatcherClient.getRouteToPlane(car.getCurrentPoint(), car.getPlaneId()));
-        followTheRoute(car, "plane");
+        car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToPlane(car.getCurrentPoint(), car.getPlaneId()));
+        followTheRoute(car, "garageToPlane");
 
-        Thread.sleep(5000);
+        takeANap(300);
 
         // Устанавливаем маршрут до склада с питанием, чтобы выгрузить пищевые отходы
-        car.setRoutePoints(groundDispatcherClient.getRouteToLuggage(car.getCurrentPoint()));
-        followTheRoute(car, "luggage");
+        car.setRoutePoints(groundDispatcherClient.getRouteFromPlaneToLuggage(car.getCurrentPoint()));
+        followTheRoute(car, "planeToLuggage");
         System.out.println("planeId: " + car.getPlaneId() + ". Пищевые отходы выгружены.");
 
 //        // Сообщаем самолету, что выгрузка пищевых отходов полностью завершена
 //        boardClient.ReportFoodUnloadCompletionToBoard(car.getPlaneId());
+//        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление самолету о завершении выгрузки пищевых отходов.");
 //
+//        // Сообщаем УНО, что заказ на разгрузку пищевых отходов полностью выполнен
 //        unoClient.reportUnloadOrderCompletionToUNO(car.getOrderId());
+//        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление о завершении заказа в УНО.");
 
-        Thread.sleep(5000);
+        takeANap(300);
 
         System.out.println("planeId: " + car.getPlaneId() + ". Заказ выполнен. Нужно ехать к гаражу.");
         // Устанавливаем маршрут до гаража, чтобы поставить машину в гараж
         car.setRoutePoints(groundDispatcherClient.getRouteToGarage(car.getCurrentPoint()));
         followTheRoute(car, "garage");
 
-        Thread.sleep(3000);
+        takeANap(210);
 
-        // TODO: Уведомить Ground Dispatcher о том, что машинка заехала в гараж (и должна быть удалена с карты)
+        // Уведомляем Ground Dispatcher о том, что машинка заехала в гараж (и должна быть удалена с карты)
         groundDispatcherClient.deleteCarFromMap(car.getCurrentPoint());
 
         // Удаление инстанса машинки
@@ -91,33 +97,53 @@ public class CateringService {
     public void serveLoadOrder(CateringCar car) throws InterruptedException {
         leaveGarage(car);
 
-        Thread.sleep(1000);
+        takeANap(70);
 
         System.out.println("planeId: " + car.getPlaneId() + ". Нужно доставить наборы питания к самолету.");
+
+        // Первая итерация цикла доставки наборов питания на борт
+        if(car.getFoodNeeded() > 0) {
+            System.out.println("planeId: " + car.getPlaneId() + ". Нужно съездить за питанием (foodNeeded: " + car.getFoodNeeded() + ") на склад.");
+            // Устанавливаем маршрут до склада с питанием, чтобы забрать наборы питания
+            car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToLuggage(car.getCurrentPoint()));
+            followTheRoute(car, "garageToLuggage");
+            car.loadFoodToCar();
+
+            takeANap(300);
+
+            System.out.println("planeId: " + car.getPlaneId() + ". Нужно отвезти питание (currentFoodQuantity: " + car.getCurrentFoodQuantity() + ") к самолету.");
+            // Устанавливаем маршрут до самолета, чтобы доставить наборы питания на борт
+            car.setRoutePoints(groundDispatcherClient.getRouteFromLuggageToPlane(car.getCurrentPoint(), car.getPlaneId()));
+            followTheRoute(car, "luggageToPlane");
+            car.loadFoodToPlane();
+
+            takeANap(300);
+        }
+
         // Цикл доставки наборов питания на борт
         while (car.getFoodNeeded() > 0) {
             System.out.println("planeId: " + car.getPlaneId() + ". Нужно съездить за питанием (foodNeeded: " + car.getFoodNeeded() + ") на склад.");
             // Устанавливаем маршрут до склада с питанием, чтобы забрать наборы питания
-            car.setRoutePoints(groundDispatcherClient.getRouteToLuggage(car.getCurrentPoint()));
-            followTheRoute(car, "luggage");
+            car.setRoutePoints(groundDispatcherClient.getRouteFromPlaneToLuggage(car.getCurrentPoint()));
+            followTheRoute(car, "planeToLuggage");
             car.loadFoodToCar();
 
-            Thread.sleep(5000);
+            takeANap(300);
 
             System.out.println("planeId: " + car.getPlaneId() + ". Нужно отвезти питание (currentFoodQuantity: " + car.getCurrentFoodQuantity() + ") к самолету.");
             // Устанавливаем маршрут до самолета, чтобы доставить наборы питания на борт
-            car.setRoutePoints(groundDispatcherClient.getRouteToPlane(car.getCurrentPoint(), car.getPlaneId()));
-            followTheRoute(car, "plane");
+            car.setRoutePoints(groundDispatcherClient.getRouteFromLuggageToPlane(car.getCurrentPoint(), car.getPlaneId()));
+            followTheRoute(car, "luggageToPlane");
             car.loadFoodToPlane();
 
-            Thread.sleep(5000);
+            takeANap(300);
         }
 
 //        // Сообщаем самолету, что загрузка питания полностью завершена
 //        boardClient.ReportFoodDeliveryCompletionToBoard(car.getPlaneId());
 //        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление самолету о завершении доставки питания.");
 //
-//        // Сообщаем УНО, что заказ полностью выполнен
+//        // Сообщаем УНО, что заказ на загрузку питания полностью выполнен.
 //        unoClient.reportLoadOrderCompletionToUNO(car.getOrderId());
 //        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление о завершении заказа в УНО.");
 
@@ -126,9 +152,9 @@ public class CateringService {
         car.setRoutePoints(groundDispatcherClient.getRouteToGarage(car.getCurrentPoint()));
         followTheRoute(car, "garage");
 
-        Thread.sleep(3000);
+        takeANap(210);
 
-        // TODO: Уведомить Ground Dispatcher о том, что машинка заехала в гараж (и должна быть удалена с карты)
+        // Уведомление Ground Dispatcher о том, что машинка заехала в гараж (и должна быть удалена с карты)
         groundDispatcherClient.deleteCarFromMap(car.getCurrentPoint());
 
         // Удаление инстанса машинки
@@ -148,29 +174,39 @@ public class CateringService {
         System.out.println("planeId: " + car.getPlaneId() + ". Едем по маршруту. Пункт назначения: " + destination);
 
         while(!car.getRoute().isEmpty()) {
-            Thread.sleep(500);
+            takeANap(35);
             proceedToThePoint(car, destination);
         }
     }
-
+    public void takeANap(Integer modelSecsToWait) {
+        departureBoardClient.waitFor(modelSecsToWait);
+    }
     public void proceedToThePoint(CateringCar car, String destination) {
-        Integer targetPoint = car.getRoute().remove();
+        Integer targetPoint = car.getRoute().peek();
         if (groundDispatcherClient.getPermissionToNextPoint(car.getCurrentPoint(), targetPoint)) {
+            // System.out.println("planeId: " + car.getPlaneId() + ". currentPoint: " + car.getCurrentPoint() + ", targetPoint: " + targetPoint);
             car.setCurrentPoint(targetPoint);
             car.setProceedingToPointFails(0);
+            car.getRoute().remove();
         } else {
             car.incrementProceedingToPointFails();
             if (car.getProceedingToPointFails() >= 5) {
                 System.out.println("planeId: " + car.getPlaneId() + ". Машина попала в пробку. Перестроим маршрут.");
-                if (Objects.equals(destination, "plane")) {
+                if (Objects.equals(destination, "garageToPlane")) {
                     System.out.println("planeId: " + car.getPlaneId() + ". Едем по перестроенному маршруту. Пункт назначения: " + destination);
-                    car.setRoutePoints(groundDispatcherClient.getRouteToPlane(car.getCurrentPoint(), car.getPlaneId()));
-                } else if (Objects.equals(destination, "luggage")) {
+                    car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToPlane(car.getCurrentPoint(), car.getPlaneId()));
+                } else if (Objects.equals(destination, "garageToLuggage")) {
                     System.out.println("planeId: " + car.getPlaneId() + ". Едем по перестроенному маршруту. Пункт назначения: " + destination);
-                    car.setRoutePoints(groundDispatcherClient.getRouteToLuggage(car.getCurrentPoint()));
-                } else {
+                    car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToLuggage(car.getCurrentPoint()));
+                } else if (Objects.equals(destination, "garage")) {
                     System.out.println("planeId: " + car.getPlaneId() + ". Едем по перестроенному маршруту. Пункт назначения: " + destination);
                     car.setRoutePoints(groundDispatcherClient.getRouteToGarage(car.getCurrentPoint()));
+                } else if (Objects.equals(destination, "luggageToPlane")) {
+                    System.out.println("planeId: " + car.getPlaneId() + ". Едем по перестроенному маршруту. Пункт назначения: " + destination);
+                    car.setRoutePoints(groundDispatcherClient.getRouteFromLuggageToPlane(car.getCurrentPoint(), car.getPlaneId()));
+                } else { // destination = planeToLuggage
+                    System.out.println("planeId: " + car.getPlaneId() + ". Едем по перестроенному маршруту. Пункт назначения: " + destination);
+                    car.setRoutePoints(groundDispatcherClient.getRouteFromPlaneToLuggage(car.getCurrentPoint()));
                 }
             }
         }
@@ -270,7 +306,7 @@ public class CateringService {
 
         System.out.println("planeId: " + car.getPlaneId() + ". Нужно выгрузить мусор из самолета.");
         // Устанавливаем маршрут до самолета, чтобы забрать мусор
-        car.setRoutePoints(groundDispatcherClient.getRouteToPlane(car.getCurrentPoint(), car.getPlaneId()));
+        car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToPlane(car.getCurrentPoint(), car.getPlaneId()));
         followTheRoute(car, "plane");
 
         System.out.println("planeId: " + car.getPlaneId() + ". Нужно доставить наборы питания к самолету.");
@@ -278,13 +314,13 @@ public class CateringService {
         while (car.getFoodNeeded() > 0) {
             System.out.println("planeId: " + car.getPlaneId() + ". Нужно съездить за питанием (foodNeeded: " + car.getFoodNeeded() + ") на склад.");
             // Устанавливаем маршрут до склада с питанием, чтобы забрать наборы питания
-            car.setRoutePoints(groundDispatcherClient.getRouteToLuggage(car.getCurrentPoint()));
+            car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToLuggage(car.getCurrentPoint()));
             followTheRoute(car, "luggage");
             car.loadFoodToCar();
 
             System.out.println("planeId: " + car.getPlaneId() + ". Нужно отвезти питание (currentFoodQuantity: " + car.getCurrentFoodQuantity() + ") к самолету.");
             // Устанавливаем маршрут до самолета, чтобы доставить наборы питания на борт
-            car.setRoutePoints(groundDispatcherClient.getRouteToPlane(car.getCurrentPoint(), car.getPlaneId()));
+            car.setRoutePoints(groundDispatcherClient.getRouteFromGarageToPlane(car.getCurrentPoint(), car.getPlaneId()));
             followTheRoute(car, "plane");
             car.loadFoodToPlane();
         }

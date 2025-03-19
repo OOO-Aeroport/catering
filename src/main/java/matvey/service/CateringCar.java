@@ -27,7 +27,13 @@ public class CateringCar {
     }
 
     public void setRoutePoints(List<Integer> route) {
+        this.route.clear();
         this.route.addAll(route);
+        System.out.print("Маршрут:");
+        for (Integer el : this.route) {
+            System.out.print(" " + el);
+        }
+        System.out.println();
     }
 
     public void incrementProceedingToPointFails() {
