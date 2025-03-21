@@ -58,13 +58,13 @@ public class CateringService {
         followTheRoute(car, "planeToLuggage");
         System.out.println("planeId: " + car.getPlaneId() + ". Пищевые отходы выгружены.");
 
-//        // Сообщаем самолету, что выгрузка пищевых отходов полностью завершена
-//        boardClient.ReportFoodUnloadCompletionToBoard(car.getPlaneId());
-//        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление самолету о завершении выгрузки пищевых отходов.");
-//
-//        // Сообщаем УНО, что заказ на разгрузку пищевых отходов полностью выполнен
-//        unoClient.reportUnloadOrderCompletionToUNO(car.getOrderId());
-//        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление о завершении заказа в УНО.");
+        // Сообщаем самолету, что выгрузка пищевых отходов полностью завершена
+        boardClient.ReportFoodUnloadCompletionToBoard(car.getPlaneId());
+        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление самолету о завершении выгрузки пищевых отходов.");
+
+        // Сообщаем УНО, что заказ на разгрузку пищевых отходов полностью выполнен
+        unoClient.reportUnloadOrderCompletionToUNO(car.getOrderId());
+        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление о завершении заказа на разгрузку в УНО.");
 
         takeANap(300);
 
@@ -139,13 +139,13 @@ public class CateringService {
             takeANap(300);
         }
 
-//        // Сообщаем самолету, что загрузка питания полностью завершена
-//        boardClient.ReportFoodDeliveryCompletionToBoard(car.getPlaneId());
-//        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление самолету о завершении доставки питания.");
-//
-//        // Сообщаем УНО, что заказ на загрузку питания полностью выполнен.
-//        unoClient.reportLoadOrderCompletionToUNO(car.getOrderId());
-//        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление о завершении заказа в УНО.");
+        // Сообщаем самолету, что загрузка питания полностью завершена
+        boardClient.ReportFoodDeliveryCompletionToBoard(car.getPlaneId());
+        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление самолету о завершении доставки питания.");
+
+        // Сообщаем УНО, что заказ на загрузку питания полностью выполнен.
+        unoClient.reportLoadOrderCompletionToUNO(car.getOrderId());
+        System.out.println("planeId: " + car.getPlaneId() + ". Отправлено уведомление о завершении заказа на загрузку в УНО.");
 
         System.out.println("planeId: " + car.getPlaneId() + ". Заказ выполнен. Нужно ехать к гаражу.");
         // Устанавливаем маршрут до гаража, чтобы поставить машину в гараж

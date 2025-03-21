@@ -20,20 +20,19 @@ public class CateringCar {
     private Integer foodNeeded;
     private Integer currentPoint;
     private Queue<Integer> route = new LinkedList<>();
-    private Integer proceedingToPointFails;
+    private Integer proceedingToPointFails = 0;
     public CateringCar() {
-        // Для теста. После теста удалить.
-        this.foodNeeded = 52;
+
     }
 
     public void setRoutePoints(List<Integer> route) {
         this.route.clear();
         this.route.addAll(route);
-        System.out.print("Маршрут:");
-        for (Integer el : this.route) {
-            System.out.print(" " + el);
-        }
-        System.out.println();
+//        System.out.print("Маршрут:");
+//        for (Integer el : this.route) {
+//            System.out.print(" " + el);
+//        }
+//        System.out.println();
     }
 
     public void incrementProceedingToPointFails() {
